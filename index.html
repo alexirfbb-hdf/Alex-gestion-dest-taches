@@ -722,18 +722,24 @@ async function loadEntry(){
       fetch(APPS_SCRIPT_URL+'?action=getTaches&date='+dateKey(sel))
     ]);
     const d = await rj.json();
-    if(d){ applyEntry(d); localStorage.setItem('entry_'+dateKey(sel), JSON.stringify(d)); }
+    if(d){ 
+      // N'applique que les trackers depuis Sheets, pas les tâches
+      if(d.sleep !== undefined){ document.getElementById('sleepSlider').value=d.sleep; updateSleep(d.sleep); }
+      if(d.water !== undefined){ waterCount=Number(d.water); renderWater(); }
+      if(d.sport==='true'||d.sport===true){ sportDone=true; document.getElementById('sportBtn').textContent='✓'; document.getElementById('sportBtn').classList.add('done'); }
+      if(d.lecture==='true'||d.lecture===true){ lectureDone=true; document.getElementById('lectureBtn').textContent='✓'; document.getElementById('lectureBtn').classList.add('done'); }
+    }
     const taches = await rt.json();
     if(taches && Array.isArray(taches) && taches.length){
-      // Dédoublonnage par texte+prio
       const seen = new Set();
       tasks = taches.filter(t => {
         const key = t.text+'|'+t.prio;
         if(seen.has(key)) return false;
         seen.add(key); return true;
       });
-      renderTasks();
     }
+    // Si Sheets n'a rien, garde les tâches du localStorage
+    renderTasks();
   } catch(e){ console.log('Erreur Sheets:', e); }
   renderTasks();
   loadAgenda();
