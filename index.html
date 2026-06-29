@@ -514,7 +514,7 @@ function renderTasks(){
     const div=document.createElement('div');
     div.className=`task-item prio-${t.prio}${t.done?' done-task':''}`;
     div.innerHTML=`<div class="task-circle${t.done?' done':''}"></div><div class="task-text">${t.text}</div>`;
-    div.addEventListener('click',()=>{tasks[i].done=!tasks[i].done;renderTasks();autoSave();});
+    div.addEventListener('click',()=>{tasks[i].done=!tasks[i].done;renderTasks();autoSave();saveTasksToSheet();});
     addLongPress(div,()=>openTaskModal(i));
     list.appendChild(div);
   });
@@ -524,7 +524,7 @@ function confirmAddTask(){
   const input=document.getElementById('newTaskInput');
   if(!input.value.trim()) return;
   tasks.push({text:input.value.trim(),prio:addPrio,done:false});
-  input.value=''; renderTasks(); autoSave(); showToast('Tâche ajoutée ✓');
+  input.value=''; renderTasks(); autoSave(); saveTasksToSheet(); showToast('Tâche ajoutée ✓');
 }
 
 function openTaskModal(idx){
@@ -533,8 +533,8 @@ function openTaskModal(idx){
   selectEditPrio(editPrio);
   document.getElementById('taskModal').classList.add('open');
 }
-function saveTaskEdit(){const v=document.getElementById('taskEditInput').value.trim();if(!v)return;tasks[editTaskIdx]={...tasks[editTaskIdx],text:v,prio:editPrio};closeModal('taskModal');renderTasks();autoSave();showToast('Modifié ✓');}
-function deleteTask(){tasks.splice(editTaskIdx,1);closeModal('taskModal');renderTasks();autoSave();showToast('Supprimé');}
+function saveTaskEdit(){const v=document.getElementById('taskEditInput').value.trim();if(!v)return;tasks[editTaskIdx]={...tasks[editTaskIdx],text:v,prio:editPrio};closeModal('taskModal');renderTasks();autoSave();saveTasksToSheet();showToast('Modifié ✓');}
+function deleteTask(){tasks.splice(editTaskIdx,1);closeModal('taskModal');renderTasks();autoSave();saveTasksToSheet();showToast('Supprimé');}
 
 // ── PROJETS ──
 const DEFAULT_CATS=[
@@ -687,15 +687,20 @@ async function autoSave(){
     sleep: document.getElementById('sleepSlider').value,
     water: waterCount, sport: sportDone, lecture: lectureDone, tasks
   };
-  // Sauvegarde locale immédiate
   localStorage.setItem('entry_'+dateKey(sel), JSON.stringify(data));
   renderNavDays(); renderCal();
-  // Sauvegarde Sheets en arrière-plan
+  // Sauvegarde uniquement les trackers (pas les tâches)
   try {
     const d = dateKey(sel);
     const p = new URLSearchParams({action:'saveJournal', date:d,
       sleep:data.sleep, water:data.water, sport:data.sport, lecture:data.lecture});
     fetch(APPS_SCRIPT_URL+'?'+p.toString());
+  } catch(e){}
+}
+
+async function saveTasksToSheet(){
+  try {
+    const d = dateKey(sel);
     const tp = new URLSearchParams({action:'saveTaches', date:d,
       tasks:encodeURIComponent(JSON.stringify(tasks))});
     fetch(APPS_SCRIPT_URL+'?'+tp.toString());
@@ -720,7 +725,13 @@ async function loadEntry(){
     if(d){ applyEntry(d); localStorage.setItem('entry_'+dateKey(sel), JSON.stringify(d)); }
     const taches = await rt.json();
     if(taches && Array.isArray(taches) && taches.length){
-      tasks = taches;
+      // Dédoublonnage par texte+prio
+      const seen = new Set();
+      tasks = taches.filter(t => {
+        const key = t.text+'|'+t.prio;
+        if(seen.has(key)) return false;
+        seen.add(key); return true;
+      });
       renderTasks();
     }
   } catch(e){ console.log('Erreur Sheets:', e); }
