@@ -702,13 +702,11 @@ async function autoSave(){
 }
 
 async function saveTasksToSheet(){
-  // Sauvegarde les tâches dans localStorage ET Sheets
-  const existing = JSON.parse(localStorage.getItem('entry_'+dateKey(sel)) || '{}');
-  existing.tasks = tasks;
-  localStorage.setItem('entry_'+dateKey(sel), JSON.stringify(existing));
+  // Sauvegarde locale avec clé séparée pour éviter tout conflit
+  localStorage.setItem('tasks_'+dateKey(sel), JSON.stringify(tasks));
+  // Sauvegarde Sheets en arrière-plan
   try {
-    const d = dateKey(sel);
-    const tp = new URLSearchParams({action:'saveTaches', date:d,
+    const tp = new URLSearchParams({action:'saveTaches', date:dateKey(sel),
       tasks:encodeURIComponent(JSON.stringify(tasks))});
     fetch(APPS_SCRIPT_URL+'?'+tp.toString());
   } catch(e){}
@@ -720,45 +718,21 @@ async function loadEntry(){
   document.getElementById('sportBtn').textContent='✗'; document.getElementById('sportBtn').classList.remove('done');
   document.getElementById('lectureBtn').textContent='✗'; document.getElementById('lectureBtn').classList.remove('done');
   
-  // Charge depuis localStorage d'abord (instantané)
-  const raw = localStorage.getItem('entry_'+dateKey(sel));
-  if(raw){
-    const d = JSON.parse(raw);
-    if(d.sleep !== undefined){ document.getElementById('sleepSlider').value=d.sleep; updateSleep(d.sleep); }
-    if(d.water !== undefined){ waterCount=Number(d.water); renderWater(); }
-    if(d.sport===true||d.sport==='true'){ sportDone=true; document.getElementById('sportBtn').textContent='✓'; document.getElementById('sportBtn').classList.add('done'); }
-    if(d.lecture===true||d.lecture==='true'){ lectureDone=true; document.getElementById('lectureBtn').textContent='✓'; document.getElementById('lectureBtn').classList.add('done'); }
-    if(d.tasks && Array.isArray(d.tasks) && d.tasks.length){ tasks=d.tasks; }
-  }
+  // Charge les tâches depuis localStorage (fiable et instantané)
+  const raw = localStorage.getItem('tasks_'+dateKey(sel));
+  if(raw){ tasks = JSON.parse(raw); }
   renderTasks();
   loadAgenda();
 
-  // Puis tente Sheets en arrière-plan
+  // Charge les trackers depuis Sheets en arrière-plan
   try {
-    const [rj, rt] = await Promise.all([
-      fetch(APPS_SCRIPT_URL+'?action=getJournal&date='+dateKey(sel)),
-      fetch(APPS_SCRIPT_URL+'?action=getTaches&date='+dateKey(sel))
-    ]);
-    const d = await rj.json();
+    const r = await fetch(APPS_SCRIPT_URL+'?action=getJournal&date='+dateKey(sel));
+    const d = await r.json();
     if(d){
       if(d.sleep !== undefined){ document.getElementById('sleepSlider').value=d.sleep; updateSleep(d.sleep); }
       if(d.water !== undefined){ waterCount=Number(d.water); renderWater(); }
       if(d.sport==='true'||d.sport===true){ sportDone=true; document.getElementById('sportBtn').textContent='✓'; document.getElementById('sportBtn').classList.add('done'); }
       if(d.lecture==='true'||d.lecture===true){ lectureDone=true; document.getElementById('lectureBtn').textContent='✓'; document.getElementById('lectureBtn').classList.add('done'); }
-    }
-    const taches = await rt.json();
-    if(taches && Array.isArray(taches) && taches.length){
-      const seen = new Set();
-      tasks = taches.filter(t => {
-        const key = t.text+'|'+t.prio;
-        if(seen.has(key)) return false;
-        seen.add(key); return true;
-      });
-      // Sauvegarde dans localStorage
-      const existing = JSON.parse(localStorage.getItem('entry_'+dateKey(sel)) || '{}');
-      existing.tasks = tasks;
-      localStorage.setItem('entry_'+dateKey(sel), JSON.stringify(existing));
-      renderTasks();
     }
   } catch(e){ console.log('Erreur Sheets:', e); }
 }
