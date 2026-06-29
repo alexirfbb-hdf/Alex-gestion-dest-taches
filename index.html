@@ -683,13 +683,16 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwZ4Yq5-eITZ85Z
 
 // ── SAVE / LOAD (Sheets + localStorage) ──
 async function autoSave(){
+  // Récupère les tâches existantes dans localStorage pour ne pas les écraser
+  const existing = JSON.parse(localStorage.getItem('entry_'+dateKey(sel)) || '{}');
   const data = {
+    ...existing,
     sleep: document.getElementById('sleepSlider').value,
-    water: waterCount, sport: sportDone, lecture: lectureDone, tasks
+    water: waterCount, sport: sportDone, lecture: lectureDone
+    // On ne touche PAS aux tasks ici
   };
   localStorage.setItem('entry_'+dateKey(sel), JSON.stringify(data));
   renderNavDays(); renderCal();
-  // Sauvegarde uniquement les trackers (pas les tâches)
   try {
     const d = dateKey(sel);
     const p = new URLSearchParams({action:'saveJournal', date:d,
@@ -699,6 +702,10 @@ async function autoSave(){
 }
 
 async function saveTasksToSheet(){
+  // Sauvegarde les tâches dans localStorage ET Sheets
+  const existing = JSON.parse(localStorage.getItem('entry_'+dateKey(sel)) || '{}');
+  existing.tasks = tasks;
+  localStorage.setItem('entry_'+dateKey(sel), JSON.stringify(existing));
   try {
     const d = dateKey(sel);
     const tp = new URLSearchParams({action:'saveTaches', date:d,
@@ -712,9 +719,20 @@ async function loadEntry(){
   document.getElementById('sleepSlider').value=7; updateSleep(7); renderWater();
   document.getElementById('sportBtn').textContent='✗'; document.getElementById('sportBtn').classList.remove('done');
   document.getElementById('lectureBtn').textContent='✗'; document.getElementById('lectureBtn').classList.remove('done');
+  
   // Charge depuis localStorage d'abord (instantané)
   const raw = localStorage.getItem('entry_'+dateKey(sel));
-  if(raw){ applyEntry(JSON.parse(raw)); }
+  if(raw){
+    const d = JSON.parse(raw);
+    if(d.sleep !== undefined){ document.getElementById('sleepSlider').value=d.sleep; updateSleep(d.sleep); }
+    if(d.water !== undefined){ waterCount=Number(d.water); renderWater(); }
+    if(d.sport===true||d.sport==='true'){ sportDone=true; document.getElementById('sportBtn').textContent='✓'; document.getElementById('sportBtn').classList.add('done'); }
+    if(d.lecture===true||d.lecture==='true'){ lectureDone=true; document.getElementById('lectureBtn').textContent='✓'; document.getElementById('lectureBtn').classList.add('done'); }
+    if(d.tasks && Array.isArray(d.tasks) && d.tasks.length){ tasks=d.tasks; }
+  }
+  renderTasks();
+  loadAgenda();
+
   // Puis tente Sheets en arrière-plan
   try {
     const [rj, rt] = await Promise.all([
@@ -722,8 +740,7 @@ async function loadEntry(){
       fetch(APPS_SCRIPT_URL+'?action=getTaches&date='+dateKey(sel))
     ]);
     const d = await rj.json();
-    if(d){ 
-      // N'applique que les trackers depuis Sheets, pas les tâches
+    if(d){
       if(d.sleep !== undefined){ document.getElementById('sleepSlider').value=d.sleep; updateSleep(d.sleep); }
       if(d.water !== undefined){ waterCount=Number(d.water); renderWater(); }
       if(d.sport==='true'||d.sport===true){ sportDone=true; document.getElementById('sportBtn').textContent='✓'; document.getElementById('sportBtn').classList.add('done'); }
@@ -737,12 +754,13 @@ async function loadEntry(){
         if(seen.has(key)) return false;
         seen.add(key); return true;
       });
+      // Sauvegarde dans localStorage
+      const existing = JSON.parse(localStorage.getItem('entry_'+dateKey(sel)) || '{}');
+      existing.tasks = tasks;
+      localStorage.setItem('entry_'+dateKey(sel), JSON.stringify(existing));
+      renderTasks();
     }
-    // Si Sheets n'a rien, garde les tâches du localStorage
-    renderTasks();
   } catch(e){ console.log('Erreur Sheets:', e); }
-  renderTasks();
-  loadAgenda();
 }
 
 function applyEntry(d){
