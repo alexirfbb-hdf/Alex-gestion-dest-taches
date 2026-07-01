@@ -301,7 +301,7 @@ textarea.fc{resize:vertical;min-height:70px}
     </div>
     <div class="nav-week" id="navWeek"></div>
     <div class="doss-section">
-      <div class="sect-lbl">Dossiers</div>
+      <div class="sect-lbl">Catégories</div>
       <div class="doss-row" id="doss-all" onclick="selectDoss(null)">
         <span class="doss-icon">◦</span>
         <span class="doss-name">Toutes les tâches</span>
@@ -314,7 +314,7 @@ textarea.fc{resize:vertical;min-height:70px}
       </div>
     </div>
     <div class="sidebar-footer">
-      <button class="btn-gerer" onclick="openDossModal()">⊞ Gérer les dossiers</button>
+      <button class="btn-gerer" onclick="openDossModal()">⊞ Gérer les catégories</button>
       <div class="kbd-row">
         <span class="kh"><kbd>N</kbd> tâche</span>
         <span class="kh"><kbd>F</kbd> focus</span>
@@ -411,9 +411,9 @@ textarea.fc{resize:vertical;min-height:70px}
 <!-- MODAL DOSSIERS -->
 <div class="modal-bg hidden" id="dossBg" onclick="closeDossBg(event)">
  <div class="modal modal-sm">
-  <div class="modal-title">Gérer les dossiers</div>
+  <div class="modal-title">Gérer les catégories</div>
   <div id="dossEditor"></div>
-  <button class="btn-new-de" onclick="addDoss()">+ Nouveau dossier</button>
+  <button class="btn-new-de" onclick="addDoss()">+ Nouvelle catégorie</button>
   <div class="modal-footer" style="margin-top:16px"><div></div>
    <div style="display:flex;gap:7px">
     <button class="btn-cancel" onclick="closeDossModal()">Annuler</button>
@@ -475,13 +475,13 @@ function todayStr(){return new Date().toISOString().substring(0,10);}
 function relDate(s){
   if(!s)return'';
   const t=new Date();t.setHours(0,0,0,0);const d=new Date(s+'T00:00:00');const diff=Math.round((d-t)/86400000);
-  if(diff===0)return"Aujourd'hui";if(diff===-1)return'Hier';if(diff===1)return'Demain';
+  if(diff===0)return"Auj.";if(diff===-1)return"Hier";if(diff===1)return"Demain";
   if(diff<0)return Math.abs(diff)+' j de retard';if(diff<=7)return'Dans '+diff+' j';
   const m=['jan','fév','mar','avr','mai','jun','jul','aoû','sep','oct','nov','déc'];
   return d.getDate()+' '+m[d.getMonth()];
 }
 function fmtH(d){return d.toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit'});}
-function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/`/g,'&#96;');}
 function prioCol(p){return p==='haute'?'var(--red)':p==='moyenne'?'var(--orange)':p==='basse'?'var(--green)':'var(--sand-deeper)';}
 function recStr(t){
   const m={quotidien:'Chaque jour',joursOuvrables:'Lun–Ven',annee:'Annuel'};
@@ -630,7 +630,7 @@ function renderDossiers(){
     const pct=base.length?Math.round(done/base.length*100):0;
     const isA=currentDoss===l;
     return `<div>
-      <div class="doss-row ${isA?'active':''}" onclick="selectDoss('${esc(l)}')">
+      <div class="doss-row ${isA?'active':''}" data-l="${esc(l)}" onclick="selectDoss(this.dataset.l)">
         <span class="doss-icon">${dossEmoji(l)}</span>
         <span class="doss-name">${esc(l)}</span>
         <span class="doss-n">${act}</span>
@@ -646,7 +646,7 @@ function showArchive(){currentDoss='__archive__';renderDossiers();renderDroite()
 function renderFocus(){
   const ft=tasks.filter(t=>t.focus==='oui'&&t.statut!=='archivee').slice(0,3);
   const el=document.getElementById('focusItems');
-  if(!ft.length){el.innerHTML='<div class="focus-empty">Choisissez 3 tâches prioritaires pour aujourd\'hui</div>';return;}
+  if(!ft.length){el.innerHTML='<div class="focus-empty">Choisissez vos 3 priorités du jour</div>';return;}
   el.innerHTML=ft.map(t=>`
     <div class="fi ${t.statut==='terminee'?'done-f':''}" onclick="openModal(${t._row})">
       <div class="fi-chk ${t.statut==='terminee'?'done':''}" onclick="toggleCheck(event,${t._row})">${t.statut==='terminee'?'✓':''}</div>
@@ -902,13 +902,13 @@ function renderDossEd(){document.getElementById('dossEditor').innerHTML=dossiers
   </div>`}).join('');}
 function dDS(i){dossDragIdx=i;}function dDO(e,i){e.preventDefault();}
 function dDD(i){if(dossDragIdx===null||dossDragIdx===i)return;const it=dossiersEd.splice(dossDragIdx,1)[0];dossiersEd.splice(i,0,it);dossDragIdx=null;renderDossEd();}
-function addDoss(){dossiersEd.push('Nouveau dossier');renderDossEd();setTimeout(()=>{const els=document.querySelectorAll('.de-nom');if(els.length)els[els.length-1].select();},40);}
+function addDoss(){dossiersEd.push('Nouvelle catégorie');renderDossEd();setTimeout(()=>{const els=document.querySelectorAll('.de-nom');if(els.length)els[els.length-1].select();},40);}
 function delDoss(i){const l=dossiersEd[i];const n=tasks.filter(t=>t.liste===l).length;if(n>0){showConfirm(`Supprimer "${l}" et ses ${n} tâches ?`,()=>{tasks=tasks.filter(t=>t.liste!==l);dossiersEd.splice(i,1);renderDossEd();});}else{dossiersEd.splice(i,1);renderDossEd();}}
 function saveDoss(){
   const inp=document.querySelectorAll('.de-nom');const old=[...dossiers];
   inp.forEach((el,i)=>{const oN=old[i];const nN=el.value.trim();if(oN&&nN&&oN!==nN)tasks.forEach(t=>{if(t.liste===oN)t.liste=nN;});});
   dossiers=[...dossiersEd].filter(Boolean);localStorage.setItem('irfbb_doss',JSON.stringify(dossiers));
-  closeDossModal();render();showToast('Dossiers mis à jour');
+  closeDossModal();render();showToast('Catégories mises à jour');
 }
 function closeDossModal(){document.getElementById('dossBg').classList.add('hidden');}
 function closeDossBg(e){if(e.target===document.getElementById('dossBg'))closeDossModal();}
@@ -939,7 +939,10 @@ document.addEventListener('keydown',e=>{
 
 function showToast(msg,err=false){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show'+(err?' err':'');setTimeout(()=>t.className='toast',3000);}
 
-init();
+try{ init(); } catch(err){ 
+  console.error('Init error:', err);
+  document.getElementById('droiteBody').innerHTML='<div class="empty">Erreur: '+err.message+'</div>';
+}
 </script>
 </body>
 </html>
