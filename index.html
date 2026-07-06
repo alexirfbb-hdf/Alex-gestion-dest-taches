@@ -489,7 +489,7 @@ function recLabel(t){var map={quotidien:'Chaque jour',joursOuvrables:'Lun-Ven',a
 function init(){
   fetch(SCRIPT_URL).then(function(r){return r.json();}).then(function(json){
     if(json.error)throw new Error(json.error);
-    tasks=json.tasks.map(function(t){return Object.assign({},t,{date_echeance:parseDate(t.date_echeance),created:parseDate(t.created),liste:cleanCat(t.liste),_row:parseInt(t._row)||0});});
+    tasks=json.tasks.map(function(t){return Object.assign({},t,{date_echeance:parseDate(t.date_echeance),created:parseDate(t.created),liste:cleanCat(t.liste),_row:parseInt(t._row)||0,focus:t.focus||'',priorite:t.priorite||'',recurrence:t.recurrence||'',statut:t.statut||'active'});});
     var allCats=[];tasks.forEach(function(t){if(t.liste&&allCats.indexOf(t.liste)<0)allCats.push(t.liste);});allCats.sort();
     var saved=localStorage.getItem('irfbb_cats');
     if(saved){var s=JSON.parse(saved);cats=s.filter(function(c){return allCats.indexOf(c)>=0;}).concat(allCats.filter(function(c){return s.indexOf(c)<0;}));}else cats=allCats;
@@ -556,15 +556,25 @@ function delCat(i) {
 }
 
 function saveCats() {
-  // Récupérer les valeurs des inputs (au cas où l'user a tapé sans déclencher onchange)
   var inputs = document.querySelectorAll('.cat-edit-input');
-  inputs.forEach(function(inp,i){ catsEditing[i]=inp.value.trim()||catsEditing[i]; });
-  // Renommer dans les tâches
+  inputs.forEach(function(inp,i){ if(inp&&catsEditing[i]!==undefined) catsEditing[i]=inp.value.trim()||catsEditing[i]; });
+  // Renommer dans les tâches ET sauvegarder dans le sheet
   cats.forEach(function(oldCat, i) {
     var newCat = catsEditing[i];
     if (oldCat && newCat && oldCat !== newCat) {
-      tasks.forEach(function(t){ if(t.liste===oldCat) t.liste=newCat; });
+      tasks.forEach(function(t){
+        if(t.liste===oldCat){
+          t.liste=newCat;
+          saveRow(t); // Sauvegarder dans le sheet
+        }
+      });
     }
+  });
+  // Supprimer les tâches des catégories supprimées
+  var toDelete = cats.filter(function(c){ return catsEditing.indexOf(c) < 0; });
+  toDelete.forEach(function(cat){
+    tasks.filter(function(t){return t.liste===cat;}).forEach(function(t){ deleteRow(t._row); });
+    tasks = tasks.filter(function(t){ return t.liste!==cat; });
   });
   cats = catsEditing.filter(function(c){return c&&c.trim();});
   localStorage.setItem('irfbb_cats', JSON.stringify(cats));
@@ -714,9 +724,9 @@ function taskHTML(t,showCat){
   return'<div class="task-item '+pc+(done?' done-t':'')+'" onclick="openModal('+row+')">'+'<div class="t-chk'+(done?' done':'')+'" onclick="toggleCheck(event,'+row+')"></div>'+'<div class="t-body"><div class="t-titre">'+esc(t.titre)+'</div><div class="t-meta">'+catB+dateB+recB+focB+'</div></div>'+'<div class="t-actions"><button class="btn-ta'+(t.focus==='oui'?' pinned':'')+'" onclick="togglePin(event,'+row+')" title="Focus">⭐</button><button class="btn-ta" onclick="openModal('+row+')">✎</button><button class="btn-ta danger" onclick="doSuppr(event,'+row+')">✕</button></div></div>';
 }
 
-function toggleCheck(e,row){e.stopPropagation();var t=tasks.find(function(t){return t._row===row;});if(!t)return;var was=t.statut!=='terminee';t.statut=was?'terminee':'active';if(was&&t.recurrence){var nx=nextOcc(t);if(nx){var nt=Object.assign({},t,{_row:tasks.length+300+Math.random(),id:'rec_'+Date.now(),date_echeance:nx,statut:'active',created:todayStr()});tasks.push(nt);appendRow(nt);}}if(was&&t.focus==='oui')t.focus='';saveRow(t);renderAll();if(document.getElementById('page-taches').classList.contains('active'))renderTachesList();}
+function toggleCheck(e,row){e.stopPropagation();var t=tasks.find(function(t){return t._row===row;});if(!t)return;var was=t.statut!=='terminee';t.statut=was?'terminee':'active';if(was&&t.recurrence){var nx=nextOcc(t);if(nx){var nt=Object.assign({},t,{_row:tasks.length+300,id:'rec_'+Date.now(),date_echeance:nx,statut:'active',created:todayStr()});tasks.push(nt);appendRow(nt);}}if(was&&t.focus==='oui')t.focus='';saveRow(t);renderAll();if(document.getElementById('page-taches').classList.contains('active'))renderTachesList();}
 function togglePin(e,row){e.stopPropagation();var t=tasks.find(function(t){return t._row===row;});if(!t)return;if(t.focus!=='oui'&&tasks.filter(function(t){return t.focus==='oui'&&t.statut!=='archivee';}).length>=3){showToast('Maximum 3 en focus',true);return;}t.focus=t.focus==='oui'?'':'oui';saveRow(t);renderAll();}
-function doSuppr(e,row,cb){if(e)e.stopPropagation();showConfirm('Supprimer cette tache ?',function(){tasks=tasks.filter(function(t){return t._row!==row;});deleteRow(row);if(cb)cb();renderAll();showToast('Supprimee');});}
+function doSuppr(e,row,cb){if(e)e.stopPropagation();showConfirm('Supprimer cette tache ?',function(){tasks=tasks.filter(function(t){return t._row!==row;});deleteRow(row);if(cb)cb();renderAll();renderTachesList();if(document.getElementById('page-planifier').classList.contains('active'))renderPlanifier();showToast('Supprimee');});}
 
 var qPrioMap={r:'haute',o:'moyenne',g:'basse'};
 function setQP(p){qPrio=qPrio===p?'':p;['r','o','g'].forEach(function(x){var el=document.getElementById('pd-'+x);if(el)el.classList.toggle('sel',x===qPrio);});}
@@ -861,15 +871,25 @@ function delCat(i) {
 }
 
 function saveCats() {
-  // Récupérer les valeurs des inputs (au cas où l'user a tapé sans déclencher onchange)
   var inputs = document.querySelectorAll('.cat-edit-input');
-  inputs.forEach(function(inp,i){ catsEditing[i]=inp.value.trim()||catsEditing[i]; });
-  // Renommer dans les tâches
+  inputs.forEach(function(inp,i){ if(inp&&catsEditing[i]!==undefined) catsEditing[i]=inp.value.trim()||catsEditing[i]; });
+  // Renommer dans les tâches ET sauvegarder dans le sheet
   cats.forEach(function(oldCat, i) {
     var newCat = catsEditing[i];
     if (oldCat && newCat && oldCat !== newCat) {
-      tasks.forEach(function(t){ if(t.liste===oldCat) t.liste=newCat; });
+      tasks.forEach(function(t){
+        if(t.liste===oldCat){
+          t.liste=newCat;
+          saveRow(t); // Sauvegarder dans le sheet
+        }
+      });
     }
+  });
+  // Supprimer les tâches des catégories supprimées
+  var toDelete = cats.filter(function(c){ return catsEditing.indexOf(c) < 0; });
+  toDelete.forEach(function(cat){
+    tasks.filter(function(t){return t.liste===cat;}).forEach(function(t){ deleteRow(t._row); });
+    tasks = tasks.filter(function(t){ return t.liste!==cat; });
   });
   cats = catsEditing.filter(function(c){return c&&c.trim();});
   localStorage.setItem('irfbb_cats', JSON.stringify(cats));
