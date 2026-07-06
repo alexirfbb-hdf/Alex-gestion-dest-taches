@@ -660,7 +660,7 @@ function renderTachesList(){
   var grouped={};list.forEach(function(t){if(!grouped[t.liste])grouped[t.liste]=[];grouped[t.liste].push(t);});
   var order=currentCatFilter?[currentCatFilter]:cats.filter(function(c){return grouped[c]&&grouped[c].length;});
   // Titre de la vue
-  var titre=currentCatFilter?'<div style="font-family:'Playfair Display',serif;font-size:20px;color:var(--text);margin-bottom:14px;">'+esc(currentCatFilter)+'</div>':'';
+  var titre=currentCatFilter?'<div style="font-family:Playfair Display,serif;font-size:20px;color:var(--text);margin-bottom:14px;">'+esc(currentCatFilter)+'</div>':'';
   document.getElementById('taches-list').innerHTML=titre+order.filter(function(c){return grouped[c]&&grouped[c].length;}).map(function(cat){
     var base=grouped[cat]||[];
     var done=base.filter(function(t){return t.statut==='terminee';}).length;
