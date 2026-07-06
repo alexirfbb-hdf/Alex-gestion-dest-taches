@@ -273,7 +273,6 @@ textarea.fc{resize:vertical;min-height:80px;}
 
     <div class="left-bottom">
       <button class="btn-sync" onclick="syncAll()">↻ Actualiser</button>
-      <button class="btn-sync" onclick="openCatModal()" style="margin-top:7px">⊞ Catégories</button>
       <span class="sync-txt" id="syncTxt"></span>
     </div>
   </div>
@@ -313,7 +312,8 @@ textarea.fc{resize:vertical;min-height:80px;}
             </div>
             <div class="add-meta">
               <span class="add-meta-lbl">Categorie</span>
-              <select class="add-sel" id="qaCat"></select>
+              <select class="add-sel" id="qaCat" onchange="filterByCat(this.value)"></select>
+              <button onclick="openCatModal()" title="Gérer les catégories" style="background:none;border:1px solid var(--sand-deeper);border-radius:6px;padding:5px 8px;font-size:13px;color:var(--text-light);cursor:pointer;flex-shrink:0;transition:all .14s;" onmouseover="this.style.borderColor='var(--rose-mid)';this.style.color='var(--rose)'" onmouseout="this.style.borderColor='var(--sand-deeper)';this.style.color='var(--text-light)'">⊞</button>
               <span class="add-meta-lbl">Priorite</span>
               <button class="pdot r" id="pd-r" onclick="setQP('r')" title="Haute"></button>
               <button class="pdot o" id="pd-o" onclick="setQP('o')" title="Moyenne"></button>
@@ -321,10 +321,13 @@ textarea.fc{resize:vertical;min-height:80px;}
               <button class="btn-add" onclick="quickAdd()">Ajouter</button>
             </div>
           </div>
-          <div class="filtres">
-            <button class="fp active" id="f-active" onclick="setFS('active')">Actives</button>
-            <button class="fp" id="f-terminee" onclick="setFS('terminee')">Terminees</button>
-            <button class="fp" id="f-toutes" onclick="setFS('toutes')">Toutes</button>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+            <div class="filtres" style="margin-bottom:0">
+              <button class="fp active" id="f-active" onclick="setFS('active')">Actives</button>
+              <button class="fp" id="f-terminee" onclick="setFS('terminee')">Terminees</button>
+              <button class="fp" id="f-toutes" onclick="setFS('toutes')">Toutes</button>
+            </div>
+            <button onclick="openCatModal()" style="background:none;border:1px solid var(--sand-deeper);border-radius:20px;padding:5px 14px;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text-mid);cursor:pointer;white-space:nowrap;transition:all .14s;" onmouseover="this.style.borderColor='var(--rose-mid)';this.style.color='var(--rose)'" onmouseout="this.style.borderColor='var(--sand-deeper)';this.style.color='var(--text-mid)'">⊞ Gérer les catégories</button>
           </div>
           <div id="taches-list"></div>
         </div>
@@ -472,7 +475,7 @@ textarea.fc{resize:vertical;min-height:80px;}
 <script>
 var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz3gYGJiCw7N6CjFBklWijlWyuKfL0YcTOAlNU30iZe5NgM1cOSqH86rHDJPZbpfJ1P/exec';
 var tasks=[], cats=[], selDate=new Date(), calDate=new Date();
-var editRow=null, clData=[], recJours=[], qPrio='', filtreStatut='active';
+var editRow=null, clData=[], recJours=[], qPrio='', filtreStatut='active', currentCatFilter='';
 
 function parseDate(s){if(!s)return'';if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;try{var d=new Date(s);if(!isNaN(d.getTime()))return d.toISOString().substring(0,10);}catch(e){}return'';}
 function cleanCat(s){if(!s)return'Autre';return s.replace(/[\u{1F000}-\u{1FFFF}\u{2600}-\u{27FF}\u{2B00}-\u{2BFF}]/gu,'').replace(/\s+/g,' ').trim()||'Autre';}
@@ -652,10 +655,18 @@ function renderTachesList(){
   var list=tasks.filter(function(t){return t.statut!=='archivee';});
   if(filtreStatut==='active')list=list.filter(function(t){return t.statut!=='terminee';});
   else if(filtreStatut==='terminee')list=list.filter(function(t){return t.statut==='terminee';});
+  // Filtre par catégorie si sélectionnée
+  if(currentCatFilter)list=list.filter(function(t){return t.liste===currentCatFilter;});
   var grouped={};list.forEach(function(t){if(!grouped[t.liste])grouped[t.liste]=[];grouped[t.liste].push(t);});
-  var order=cats.filter(function(c){return grouped[c]&&grouped[c].length;});
-  document.getElementById('taches-list').innerHTML=order.map(function(cat){
-    return'<div class="card" style="margin-bottom:12px"><div class="sec-hdr" onclick="toggleSec(this)"><span class="sec-arr open">▶</span><span class="sec-title">'+esc(cat)+'</span><span class="sec-n">'+grouped[cat].length+'</span></div><div class="sec-body tasks-list">'+grouped[cat].map(function(t){return taskHTML(t,false);}).join('')+'</div></div>';
+  var order=currentCatFilter?[currentCatFilter]:cats.filter(function(c){return grouped[c]&&grouped[c].length;});
+  // Titre de la vue
+  var titre=currentCatFilter?'<div style="font-family:'Playfair Display',serif;font-size:20px;color:var(--text);margin-bottom:14px;">'+esc(currentCatFilter)+'</div>':'';
+  document.getElementById('taches-list').innerHTML=titre+order.filter(function(c){return grouped[c]&&grouped[c].length;}).map(function(cat){
+    var base=grouped[cat]||[];
+    var done=base.filter(function(t){return t.statut==='terminee';}).length;
+    var pct=base.length?Math.round(done/base.length*100):0;
+    var progBar=currentCatFilter?'<div style="height:3px;background:var(--sand-deeper);border-radius:2px;overflow:hidden;margin-bottom:12px"><div style="height:100%;background:var(--rose-mid);border-radius:2px;width:'+pct+'%"></div></div>':'';
+    return'<div class="card" style="margin-bottom:12px">'+progBar+'<div class="sec-hdr" onclick="toggleSec(this)"><span class="sec-arr open">▶</span><span class="sec-title">'+esc(cat)+'</span><span class="sec-n">'+base.length+'</span></div><div class="sec-body tasks-list">'+base.map(function(t){return taskHTML(t,false);}).join('')+'</div></div>';
   }).join('')||'<div class="empty">Aucune tache.</div>';
 }
 
@@ -710,7 +721,23 @@ function doSuppr(e,row,cb){if(e)e.stopPropagation();showConfirm('Supprimer cette
 var qPrioMap={r:'haute',o:'moyenne',g:'basse'};
 function setQP(p){qPrio=qPrio===p?'':p;['r','o','g'].forEach(function(x){var el=document.getElementById('pd-'+x);if(el)el.classList.toggle('sel',x===qPrio);});}
 function quickAdd(){var inp=document.getElementById('qaInput');if(!inp)return;var titre=inp.value.trim();if(!titre)return;var liste=(document.getElementById('qaCat')||{}).value||(cats[0]||'Autre');var prio=qPrioMap[qPrio]||'';var nt={id:'local_'+Date.now(),liste:liste,titre:titre,notes:'',date_echeance:'',statut:'active',priorite:prio,recurrence:'',recurrence_detail:'',focus:'',checklist:'',created:todayStr(),_row:tasks.length+200};tasks.push(nt);appendRow(nt);inp.value='';qPrio='';['r','o','g'].forEach(function(x){var el=document.getElementById('pd-'+x);if(el)el.classList.remove('sel');});renderAll();renderTachesList();showToast('Tache ajoutee!');}
-function populateSelects(){var opts=cats.map(function(c){return'<option value="'+esc(c)+'">'+esc(c)+'</option>';}).join('');['fCat','qaCat'].forEach(function(id){var el=document.getElementById(id);if(el)el.innerHTML=opts;});}
+function populateSelects(){
+  var opts=cats.map(function(c){return'<option value="'+esc(c)+'">'+esc(c)+'</option>';}).join('');
+  var el=document.getElementById('fCat');if(el)el.innerHTML=opts;
+  var qa=document.getElementById('qaCat');
+  if(qa){
+    qa.innerHTML='<option value="">— Toutes les catégories</option>'+opts;
+    if(currentCatFilter)qa.value=currentCatFilter;
+  }
+}
+
+function filterByCat(cat){
+  currentCatFilter=cat;
+  renderTachesList();
+  // Mettre à jour le label du bouton filtre actif
+  var qa=document.getElementById('qaCat');
+  if(qa&&!cat) qa.value='';
+}
 
 function openModal(row,lf,df){
   editRow=row;var isNew=row===null;
