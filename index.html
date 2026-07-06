@@ -218,6 +218,15 @@ textarea.fc{resize:vertical;min-height:80px;}
 .btn-arch{background:none;border:1px solid var(--sand-deeper);border-radius:var(--r-sm);padding:9px 16px;font-size:14px;font-family:'DM Sans',sans-serif;color:var(--text-mid);cursor:pointer;}
 .btn-cancel{background:none;border:1px solid var(--sand-deeper);border-radius:var(--r-sm);padding:9px 18px;font-size:14px;font-family:'DM Sans',sans-serif;color:var(--text-mid);cursor:pointer;}
 .btn-save{background:var(--rose);color:white;border:none;border-radius:var(--r-sm);padding:9px 22px;font-size:14px;font-weight:400;font-family:'DM Sans',sans-serif;cursor:pointer;}
+.cat-edit-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--white);border:1px solid var(--sand-deeper);border-radius:var(--r-sm);margin-bottom:7px;cursor:grab;transition:box-shadow .14s;}
+.cat-edit-row:hover{box-shadow:var(--shadow);}
+.cat-drag{color:var(--text-xlight);font-size:16px;cursor:grab;flex-shrink:0;user-select:none;}
+.cat-edit-input{flex:1;border:none;outline:none;font-size:14px;font-family:'DM Sans',sans-serif;font-weight:300;color:var(--text);background:transparent;}
+.cat-edit-n{font-size:12px;color:var(--text-xlight);flex-shrink:0;}
+.cat-edit-del{background:none;border:none;cursor:pointer;color:var(--text-xlight);font-size:15px;padding:4px;border-radius:5px;transition:all .14s;flex-shrink:0;}
+.cat-edit-del:hover{color:var(--red);background:var(--red-pale);}
+.btn-new-cat{display:flex;align-items:center;gap:8px;width:100%;background:none;border:1px dashed var(--sand-deeper);border-radius:var(--r-sm);padding:10px 14px;font-size:14px;font-family:'DM Sans',sans-serif;color:var(--text-light);cursor:pointer;margin-top:8px;transition:all .14s;}
+.btn-new-cat:hover{border-color:var(--rose-mid);color:var(--rose);}
 .confirm-bg{position:fixed;inset:0;background:rgba(61,53,48,0.35);z-index:300;display:flex;align-items:center;justify-content:center;}
 .confirm-bg.hidden{display:none;}
 .confirm-box{background:var(--white);border-radius:var(--r);padding:26px 32px;width:320px;box-shadow:var(--shadow-md);text-align:center;}
@@ -264,6 +273,7 @@ textarea.fc{resize:vertical;min-height:80px;}
 
     <div class="left-bottom">
       <button class="btn-sync" onclick="syncAll()">↻ Actualiser</button>
+      <button class="btn-sync" onclick="openCatModal()" style="margin-top:7px">⊞ Catégories</button>
       <span class="sync-txt" id="syncTxt"></span>
     </div>
   </div>
@@ -438,6 +448,25 @@ textarea.fc{resize:vertical;min-height:80px;}
  </div>
 </div>
 
+
+<!-- MODAL GESTION CATEGORIES -->
+<div class="modal-bg hidden" id="catModalBg" onclick="closeCatBg(event)">
+ <div class="modal">
+  <div class="modal-handle"></div>
+  <div class="modal-title">Gérer les catégories</div>
+  <div style="font-size:13px;color:var(--text-light);margin-bottom:16px">Glissez pour réordonner, cliquez pour renommer.</div>
+  <div id="catEditList"></div>
+  <button class="btn-new-cat" onclick="addNewCat()">+ Nouvelle catégorie</button>
+  <div class="modal-footer">
+   <div></div>
+   <div style="display:flex;gap:9px">
+    <button class="btn-cancel" onclick="closeCatModal()">Annuler</button>
+    <button class="btn-save" onclick="saveCats()">Enregistrer</button>
+   </div>
+  </div>
+ </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -465,7 +494,84 @@ function init(){
     renderAll();loadAgenda();
   }).catch(function(e){showToast('Erreur: '+e.message,true);});
 }
-function syncAll(){init();}
+function syncAll(){
+// ── GESTION CATEGORIES ────────────────────────────────────
+var catsEditing = [], catDragIdx = null;
+
+function openCatModal() {
+  catsEditing = cats.slice();
+  renderCatEdit();
+  document.getElementById('catModalBg').classList.remove('hidden');
+}
+function closeCatModal() { document.getElementById('catModalBg').classList.add('hidden'); }
+function closeCatBg(e) { if(e.target===document.getElementById('catModalBg'))closeCatModal(); }
+
+function renderCatEdit() {
+  document.getElementById('catEditList').innerHTML = catsEditing.map(function(cat, i) {
+    var n = tasks.filter(function(t){return t.liste===cat&&t.statut!=='archivee';}).length;
+    return '<div class="cat-edit-row" draggable="true" ondragstart="catDragStart('+i+')" ondragover="catDragOver(event,'+i+')" ondrop="catDrop('+i+')" ondragend="catDragEnd()">' +
+      '<span class="cat-drag">⠿</span>' +
+      '<input class="cat-edit-input" value="'+esc(cat)+'" onchange="catsEditing['+i+']=this.value">' +
+      '<span class="cat-edit-n">'+n+' tâche'+(n!==1?'s':'')+'</span>' +
+      '<button class="cat-edit-del" onclick="delCat('+i+')">✕</button>' +
+      '</div>';
+  }).join('');
+}
+
+function catDragStart(i) { catDragIdx=i; }
+function catDragOver(e,i) { e.preventDefault(); }
+function catDrop(i) {
+  if(catDragIdx===null||catDragIdx===i) return;
+  var item=catsEditing.splice(catDragIdx,1)[0];
+  catsEditing.splice(i,0,item);
+  catDragIdx=null; renderCatEdit();
+}
+function catDragEnd() { catDragIdx=null; }
+
+function addNewCat() {
+  catsEditing.push('Nouvelle catégorie');
+  renderCatEdit();
+  setTimeout(function(){
+    var inputs=document.querySelectorAll('.cat-edit-input');
+    if(inputs.length) { inputs[inputs.length-1].select(); inputs[inputs.length-1].focus(); }
+  }, 40);
+}
+
+function delCat(i) {
+  var cat = catsEditing[i];
+  var n = tasks.filter(function(t){return t.liste===cat;}).length;
+  if (n > 0) {
+    showConfirm('Supprimer "'+cat+'" et ses '+n+' tâches ?', function() {
+      tasks = tasks.filter(function(t){return t.liste!==cat;});
+      catsEditing.splice(i,1);
+      renderCatEdit();
+    });
+  } else {
+    catsEditing.splice(i,1);
+    renderCatEdit();
+  }
+}
+
+function saveCats() {
+  // Récupérer les valeurs des inputs (au cas où l'user a tapé sans déclencher onchange)
+  var inputs = document.querySelectorAll('.cat-edit-input');
+  inputs.forEach(function(inp,i){ catsEditing[i]=inp.value.trim()||catsEditing[i]; });
+  // Renommer dans les tâches
+  cats.forEach(function(oldCat, i) {
+    var newCat = catsEditing[i];
+    if (oldCat && newCat && oldCat !== newCat) {
+      tasks.forEach(function(t){ if(t.liste===oldCat) t.liste=newCat; });
+    }
+  });
+  cats = catsEditing.filter(function(c){return c&&c.trim();});
+  localStorage.setItem('irfbb_cats', JSON.stringify(cats));
+  closeCatModal();
+  renderAll();
+  renderTachesList();
+  showToast('Catégories mises à jour !');
+}
+
+init();}
 function renderAll(){renderDateHero();renderMiniCal();renderFocus();renderTodayTasks();populateSelects();}
 
 function renderDateHero(){
@@ -668,6 +774,83 @@ function deleteRow(row){if(typeof row!=='number'||row<2)return;fetch(SCRIPT_URL,
 function showConfirm(msg,cb){document.getElementById('confirmMsg').textContent=msg;document.getElementById('confirmBg').classList.remove('hidden');document.getElementById('confirmOk').onclick=function(){closeConfirm();cb();};}
 function closeConfirm(){document.getElementById('confirmBg').classList.add('hidden');}
 function showToast(msg,err){var t=document.getElementById('toast');t.textContent=msg;t.className='toast show'+(err?' err':'');setTimeout(function(){t.className='toast';},3000);}
+
+
+// ── GESTION CATEGORIES ────────────────────────────────────
+var catsEditing = [], catDragIdx = null;
+
+function openCatModal() {
+  catsEditing = cats.slice();
+  renderCatEdit();
+  document.getElementById('catModalBg').classList.remove('hidden');
+}
+function closeCatModal() { document.getElementById('catModalBg').classList.add('hidden'); }
+function closeCatBg(e) { if(e.target===document.getElementById('catModalBg'))closeCatModal(); }
+
+function renderCatEdit() {
+  document.getElementById('catEditList').innerHTML = catsEditing.map(function(cat, i) {
+    var n = tasks.filter(function(t){return t.liste===cat&&t.statut!=='archivee';}).length;
+    return '<div class="cat-edit-row" draggable="true" ondragstart="catDragStart('+i+')" ondragover="catDragOver(event,'+i+')" ondrop="catDrop('+i+')" ondragend="catDragEnd()">' +
+      '<span class="cat-drag">⠿</span>' +
+      '<input class="cat-edit-input" value="'+esc(cat)+'" onchange="catsEditing['+i+']=this.value">' +
+      '<span class="cat-edit-n">'+n+' tâche'+(n!==1?'s':'')+'</span>' +
+      '<button class="cat-edit-del" onclick="delCat('+i+')">✕</button>' +
+      '</div>';
+  }).join('');
+}
+
+function catDragStart(i) { catDragIdx=i; }
+function catDragOver(e,i) { e.preventDefault(); }
+function catDrop(i) {
+  if(catDragIdx===null||catDragIdx===i) return;
+  var item=catsEditing.splice(catDragIdx,1)[0];
+  catsEditing.splice(i,0,item);
+  catDragIdx=null; renderCatEdit();
+}
+function catDragEnd() { catDragIdx=null; }
+
+function addNewCat() {
+  catsEditing.push('Nouvelle catégorie');
+  renderCatEdit();
+  setTimeout(function(){
+    var inputs=document.querySelectorAll('.cat-edit-input');
+    if(inputs.length) { inputs[inputs.length-1].select(); inputs[inputs.length-1].focus(); }
+  }, 40);
+}
+
+function delCat(i) {
+  var cat = catsEditing[i];
+  var n = tasks.filter(function(t){return t.liste===cat;}).length;
+  if (n > 0) {
+    showConfirm('Supprimer "'+cat+'" et ses '+n+' tâches ?', function() {
+      tasks = tasks.filter(function(t){return t.liste!==cat;});
+      catsEditing.splice(i,1);
+      renderCatEdit();
+    });
+  } else {
+    catsEditing.splice(i,1);
+    renderCatEdit();
+  }
+}
+
+function saveCats() {
+  // Récupérer les valeurs des inputs (au cas où l'user a tapé sans déclencher onchange)
+  var inputs = document.querySelectorAll('.cat-edit-input');
+  inputs.forEach(function(inp,i){ catsEditing[i]=inp.value.trim()||catsEditing[i]; });
+  // Renommer dans les tâches
+  cats.forEach(function(oldCat, i) {
+    var newCat = catsEditing[i];
+    if (oldCat && newCat && oldCat !== newCat) {
+      tasks.forEach(function(t){ if(t.liste===oldCat) t.liste=newCat; });
+    }
+  });
+  cats = catsEditing.filter(function(c){return c&&c.trim();});
+  localStorage.setItem('irfbb_cats', JSON.stringify(cats));
+  closeCatModal();
+  renderAll();
+  renderTachesList();
+  showToast('Catégories mises à jour !');
+}
 
 init();
 </script>
