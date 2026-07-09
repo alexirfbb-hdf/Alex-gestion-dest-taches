@@ -490,7 +490,8 @@ function init(){
   fetch(SCRIPT_URL).then(function(r){return r.json();}).then(function(json){
     if(json.error)throw new Error(json.error);
     tasks=json.tasks.map(function(t){return Object.assign({},t,{date_echeance:parseDate(t.date_echeance),created:parseDate(t.created),liste:cleanCat(t.liste),_row:parseInt(t._row)||0,focus:t.focus||'',priorite:t.priorite||'',recurrence:t.recurrence||'',statut:t.statut||'active'});});
-    var allCats=[];tasks.forEach(function(t){if(t.liste&&allCats.indexOf(t.liste)<0)allCats.push(t.liste);});allCats.sort();
+    // Construire cats uniquement depuis les tâches NON archivées
+    var allCats=[];tasks.filter(function(t){return t.statut!=='archivee';}).forEach(function(t){if(t.liste&&allCats.indexOf(t.liste)<0)allCats.push(t.liste);});allCats.sort();
     var saved=localStorage.getItem('irfbb_cats');
     if(saved){var s=JSON.parse(saved);cats=s.filter(function(c){return allCats.indexOf(c)>=0;}).concat(allCats.filter(function(c){return s.indexOf(c)<0;}));}else cats=allCats;
     document.getElementById('syncTxt').textContent='Actualise '+fmtH(new Date());
@@ -543,11 +544,15 @@ function addNewCat() {
 
 function delCat(i) {
   var cat=catsEditing[i];
-  var n=tasks.filter(function(t){return t.liste===cat;}).length;
-  if(n>0){
-    showConfirm('Supprimer "'+cat+'" et ses '+n+' taches ?',function(){
-      tasks.filter(function(t){return t.liste===cat;}).forEach(function(t){deleteRow(t._row);});
-      tasks=tasks.filter(function(t){return t.liste!==cat;});
+  var actives=tasks.filter(function(t){return t.liste===cat&&t.statut!=='archivee';}).length;
+  var total=tasks.filter(function(t){return t.liste===cat;}).length;
+  if(total>0){
+    showConfirm('Archiver les '+actives+' tache(s) de "'+cat+'" ?',function(){
+      tasks.filter(function(t){return t.liste===cat;}).forEach(function(t){
+        t.statut='archivee';
+        t.focus='';
+        saveRow(t); // Met à jour le statut dans le sheet
+      });
       catsEditing.splice(i,1);
       renderCatEdit();
     });
@@ -566,10 +571,14 @@ function saveCats() {
       tasks.forEach(function(t){if(t.liste===oldCat){t.liste=newCat;saveRow(t);}});
     }
   });
+  // Archiver les tâches des catégories supprimées (plus fiable que deleteRow)
   var toDelete=cats.filter(function(c){return catsEditing.indexOf(c)<0;});
   toDelete.forEach(function(cat){
-    tasks.filter(function(t){return t.liste===cat;}).forEach(function(t){deleteRow(t._row);});
-    tasks=tasks.filter(function(t){return t.liste!==cat;});
+    tasks.filter(function(t){return t.liste===cat&&t.statut!=='archivee';}).forEach(function(t){
+      t.statut='archivee';
+      t.focus='';
+      saveRow(t);
+    });
   });
   cats=catsEditing.filter(function(c){return c&&c.trim();});
   localStorage.setItem('irfbb_cats',JSON.stringify(cats));
