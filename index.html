@@ -324,8 +324,7 @@ textarea.fc{resize:vertical;min-height:80px;}
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
             <div class="filtres" style="margin-bottom:0">
               <button class="fp active" id="f-active" onclick="setFS('active')">Actives</button>
-              <button class="fp" id="f-terminee" onclick="setFS('terminee')">Terminees</button>
-              <button class="fp" id="f-toutes" onclick="setFS('toutes')">Toutes</button>
+              <button class="fp" id="f-toutes" onclick="setFS('toutes')">Actives + En retard</button>
             </div>
             <button onclick="openCatModal()" style="background:none;border:1px solid var(--sand-deeper);border-radius:20px;padding:5px 14px;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--text-mid);cursor:pointer;white-space:nowrap;transition:all .14s;" onmouseover="this.style.borderColor='var(--rose-mid)';this.style.color='var(--rose)'" onmouseout="this.style.borderColor='var(--sand-deeper)';this.style.color='var(--text-mid)'">⊞ Gérer les catégories</button>
           </div>
@@ -333,9 +332,9 @@ textarea.fc{resize:vertical;min-height:80px;}
         </div>
       </div>
 
-      <!-- PAGE SEMAINE -->
-      <div class="page" id="page-semaine">
-        <div class="semaine-wrap" id="semaineContent"></div>
+      <!-- PAGE TERMINEES -->
+      <div class="page" id="page-terminees">
+        <div class="taches-wrap" id="termineesContent"></div>
       </div>
 
       <!-- PAGE PLANIFIER -->
@@ -362,9 +361,9 @@ textarea.fc{resize:vertical;min-height:80px;}
         <span class="nb-lbl">Taches</span>
       </button>
       <button class="nav-btn-add" onclick="openModal(null)"><span>+</span></button>
-      <button class="nav-btn" id="nav-semaine" onclick="showPage('semaine')">
-        <span class="nb-icon">📆</span>
-        <span class="nb-lbl">Semaine</span>
+      <button class="nav-btn" id="nav-terminees" onclick="showPage('terminees')">
+        <span class="nb-icon">✅</span>
+        <span class="nb-lbl">Terminees</span>
       </button>
       <button class="nav-btn" id="nav-planifier" onclick="showPage('planifier')">
         <span class="nb-icon">🗓</span>
@@ -680,19 +679,35 @@ function renderTachesList(){
   }).join('')||'<div class="empty">Aucune tache.</div>';
 }
 
-function renderSemaine(){
-  var today=new Date();today.setHours(0,0,0,0);
-  var days=[],d=new Date(today),dow=d.getDay();d.setDate(d.getDate()+(dow===0?-6:1-dow));
-  for(var i=0;i<7;i++){days.push(new Date(d));d.setDate(d.getDate()+1);}
-  var jF=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
-  var html=days.map(function(day,i){
-    var ds=day.toISOString().substring(0,10);
-    var dt=tasks.filter(function(t){return t.date_echeance===ds&&t.statut!=='archivee';});
-    if(!dt.length)return'';
-    var isT=day.getTime()===today.getTime();
-    return'<div class="plan-day"><div class="plan-day-hdr"><span class="plan-day-name'+(isT?' today':'')+'">'+jF[i]+' '+day.getDate()+'</span><span class="plan-day-n">'+dt.length+' tache'+(dt.length!==1?'s':'')+'</span></div><div class="tasks-list">'+dt.map(function(t){return taskHTML(t,false);}).join('')+'</div></div>';
+function renderTerminees(){
+  var list=tasks.filter(function(t){return t.statut==='terminee';});
+  if(!list.length){
+    document.getElementById('termineesContent').innerHTML='<div class="empty" style="padding-top:40px">Aucune tache terminee pour l'instant !</div>';
+    return;
+  }
+  // Grouper par catégorie
+  var grouped={};
+  list.forEach(function(t){if(!grouped[t.liste])grouped[t.liste]=[];grouped[t.liste].push(t);});
+  var order=cats.filter(function(c){return grouped[c]&&grouped[c].length;});
+  // Ajouter les cats non dans l'ordre (au cas où)
+  Object.keys(grouped).forEach(function(c){if(order.indexOf(c)<0)order.push(c);});
+  var total=list.length;
+  var html='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">'
+    +'<div style="font-family:'Playfair Display',serif;font-size:22px;color:var(--text)">Terminees</div>'
+    +'<div style="font-size:13px;color:var(--text-light)">'+total+' tache'+(total>1?'s':'')+' au total</div>'
+    +'</div>';
+  html+=order.map(function(cat){
+    var items=grouped[cat]||[];
+    return'<div class="card" style="margin-bottom:12px">'
+      +'<div class="sec-hdr" onclick="toggleSec(this)">'
+      +'<span class="sec-arr open">&#9658;</span>'
+      +'<span class="sec-title">'+esc(cat)+'</span>'
+      +'<span class="sec-n">'+items.length+'</span>'
+      +'</div>'
+      +'<div class="sec-body tasks-list">'+items.map(function(t){return taskHTML(t,false);}).join('')+'</div>'
+      +'</div>';
   }).join('');
-  document.getElementById('semaineContent').innerHTML=html||'<div class="empty">Aucune tache cette semaine</div>';
+  document.getElementById('termineesContent').innerHTML=html;
 }
 
 function renderPlanifier(){
@@ -798,7 +813,7 @@ function suppTask(){doSuppr(null,editRow,closeModal);}
 function closeModal(){document.getElementById('modalBg').classList.add('hidden');editRow=null;}
 function closeMBg(e){if(e.target===document.getElementById('modalBg'))closeModal();}
 
-function showPage(name){document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});document.querySelectorAll('.nav-btn').forEach(function(b){b.classList.remove('active');});var p=document.getElementById('page-'+name);if(p)p.classList.add('active');var nb=document.getElementById('nav-'+name);if(nb)nb.classList.add('active');if(name==='taches')renderTachesList();if(name==='semaine')renderSemaine();if(name==='planifier')renderPlanifier();if(name==='aujourdhui'){renderTodayTasks();loadAgenda();}}
+function showPage(name){document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});document.querySelectorAll('.nav-btn').forEach(function(b){b.classList.remove('active');});var p=document.getElementById('page-'+name);if(p)p.classList.add('active');var nb=document.getElementById('nav-'+name);if(nb)nb.classList.add('active');if(name==='taches')renderTachesList();if(name==='terminees')renderTerminees();if(name==='planifier')renderPlanifier();if(name==='aujourdhui'){renderTodayTasks();loadAgenda();}}
 function setFS(s){filtreStatut=s;['active','terminee','toutes'].forEach(function(x){var el=document.getElementById('f-'+x);if(el)el.classList.toggle('active',x===s);});renderTachesList();}
 function toggleSec(hdr){hdr.querySelector('.sec-arr').classList.toggle('open');var b=hdr.nextElementSibling;if(b)b.classList.toggle('collapsed');}
 
