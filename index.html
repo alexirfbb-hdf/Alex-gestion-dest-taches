@@ -80,7 +80,7 @@ body{background:var(--sand);font-family:'DM Sans',sans-serif;color:var(--text);h
 /* ═══════════════════════════════════════
    COLONNE DROITE — 2/3
 ═══════════════════════════════════════ */
-.right-col{display:flex;flex-direction:column;height:100vh;overflow:hidden;background:var(--white);}
+.right-col{display:flex;flex-direction:column;height:100vh;overflow:hidden;background:var(--sand);}
 .right-content{flex:1;overflow:hidden;}
 .page{display:none;height:100%;overflow:hidden;}
 .page.active{display:block;}
@@ -105,7 +105,7 @@ body{background:var(--sand);font-family:'DM Sans',sans-serif;color:var(--text);h
 .btn-fp:hover{background:white;}
 
 /* CARD */
-.card{background:var(--sand);border-radius:var(--r);padding:20px 24px;box-shadow:var(--shadow);margin-bottom:16px;border:1px solid var(--sand-dark);}
+.card{background:var(--white);border-radius:var(--r);padding:20px 24px;box-shadow:var(--shadow);margin-bottom:16px;}
 .card-lbl{font-size:10px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--text-xlight);margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;}
 
 /* TACHES */
@@ -115,7 +115,7 @@ body{background:var(--sand);font-family:'DM Sans',sans-serif;color:var(--text);h
 .task-item.pr{background:var(--red-pale);border-left-color:var(--red);}
 .task-item.po{background:var(--orange-pale);border-left-color:var(--orange);}
 .task-item.pg{background:var(--green-pale);border-left-color:var(--green);}
-.task-item.pn{background:var(--sand);border-left-color:var(--sand-deeper);}
+.task-item.pn{background:var(--white);border-left-color:var(--sand-deeper);}
 .t-chk{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--sand-deeper);flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;background:white;transition:all .18s;cursor:pointer;}
 .t-chk:hover{border-color:var(--sage);}
 .t-chk.done{background:var(--sage);border-color:var(--sage);}
@@ -239,6 +239,24 @@ textarea.fc{resize:vertical;min-height:80px;}
 .toast{position:fixed;bottom:calc(var(--nav-h)+12px);right:40px;background:var(--text);color:var(--white);padding:11px 22px;border-radius:20px;font-size:14px;box-shadow:var(--shadow-md);z-index:400;opacity:0;transform:translateY(10px);transition:all .22s;white-space:nowrap;}
 .toast.show{opacity:1;transform:translateY(0);}
 .toast.err{background:var(--red);}
+
+/* TACHE COMPACTE UNE LIGNE */
+.task-compact{display:flex;align-items:center;gap:10px;padding:9px 14px;border-radius:var(--r-sm);cursor:pointer;border-left:3px solid transparent;transition:box-shadow .14s;margin-bottom:5px;}
+.task-compact:hover{box-shadow:var(--shadow);}
+.task-compact.pr{background:var(--red-pale);border-left-color:var(--red);}
+.task-compact.po{background:var(--orange-pale);border-left-color:var(--orange);}
+.task-compact.pg{background:var(--green-pale);border-left-color:var(--green);}
+.task-compact.pn{background:var(--white);border-left-color:var(--sand-deeper);}
+.task-compact .tc-chk{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--sand-deeper);flex-shrink:0;display:flex;align-items:center;justify-content:center;background:white;cursor:pointer;transition:all .18s;}
+.task-compact .tc-chk:hover{border-color:var(--sage);}
+.task-compact .tc-chk.done{background:var(--sage);border-color:var(--sage);}
+.task-compact .tc-chk.done::after{content:'✓';font-size:9px;color:white;font-weight:700;}
+.task-compact .tc-titre{flex:1;font-size:14px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.task-compact.done-t .tc-titre{text-decoration:line-through;color:var(--text-xlight);}
+.task-compact .tc-cat{font-size:11px;color:var(--text-xlight);flex-shrink:0;margin-left:4px;}
+.task-compact .tc-actions{display:flex;gap:3px;opacity:0;transition:opacity .14s;flex-shrink:0;}
+.task-compact:hover .tc-actions{opacity:1;}
+
 .loading{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;padding:40px;color:var(--text-light);font-style:italic;font-size:14px;}
 .spinner{width:26px;height:26px;border:2px solid var(--sand-deeper);border-top-color:var(--rose-mid);border-radius:50%;animation:spin .9s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
@@ -730,14 +748,13 @@ function taskHTMLCompact(t){
   var done=t.statut==='terminee';
   var pc=t.priorite==='haute'?'pr':t.priorite==='moyenne'?'po':t.priorite==='basse'?'pg':'pn';
   var row=typeof t._row==='number'?t._row:0;
-  var recB=t.recurrence?'<span class="badge b-rec">&#8635; '+esc(recLabel(t))+'</span>':'';
-  var focB=t.focus==='oui'?'<span class="badge b-focus">&#11088;</span>':'';
-  var catB='<span class="badge b-cat">'+esc(t.liste)+'</span>';
-  return'<div class="task-item '+pc+(done?' done-t':'')+'" onclick="openModal('+row+')">'
-    +'<div class="t-chk'+(done?' done':'')+'" onclick="toggleCheck(event,'+row+')"></div>'
-    +'<div class="t-body"><div class="t-titre">'+esc(t.titre)+'</div>'
-    +'<div class="t-meta">'+catB+recB+focB+'</div></div>'
-    +'<div class="t-actions">'
+  var rec=t.recurrence?' &#8635;':'';
+  var foc=t.focus==='oui'?' &#11088;':'';
+  return'<div class="task-compact '+pc+(done?' done-t':'')+'" onclick="openModal('+row+')">'
+    +'<div class="tc-chk'+(done?' done':'')+'" onclick="toggleCheck(event,'+row+')"></div>'
+    +'<span class="tc-titre">'+esc(t.titre)+rec+foc+'</span>'
+    +'<span class="tc-cat">'+esc(t.liste)+'</span>'
+    +'<div class="tc-actions">'
     +'<button class="btn-ta'+(t.focus==='oui'?' pinned':'')+'" onclick="togglePin(event,'+row+')" title="Focus">&#11088;</button>'
     +'<button class="btn-ta" onclick="openModal('+row+')">&#9998;</button>'
     +'<button class="btn-ta danger" onclick="doSuppr(event,'+row+')">&#10005;</button>'
