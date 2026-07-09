@@ -682,7 +682,7 @@ function renderTachesList(){
 function renderTerminees(){
   var list=tasks.filter(function(t){return t.statut==='terminee';});
   if(!list.length){
-    document.getElementById('termineesContent').innerHTML='<div class="empty" style="padding-top:40px">Aucune tache terminee pour l'instant !</div>';
+    document.getElementById('termineesContent').innerHTML='<div class="empty" style="padding-top:40px">Aucune tache terminee pour l&#39;instant !</div>';
     return;
   }
   // Grouper par catégorie
