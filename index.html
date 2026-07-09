@@ -16,8 +16,8 @@
   --orange:#C49050;--orange-pale:#FDF3E3;
   --green:#6A9E6C;--green-pale:#EAF4EA;
   --r:14px;--r-sm:10px;
-  --shadow:0 1px 4px rgba(61,53,48,0.08);
-  --shadow-md:0 4px 16px rgba(61,53,48,0.12);
+  --shadow:0 2px 8px rgba(61,53,48,0.10);
+  --shadow-md:0 4px 20px rgba(61,53,48,0.14);
   --nav-h:64px;
 }
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -46,9 +46,9 @@ body{background:var(--sand);font-family:'DM Sans',sans-serif;color:var(--text);h
 .mc-nav button{width:26px;height:26px;border:none;background:none;cursor:pointer;font-size:15px;color:var(--text-xlight);border-radius:5px;display:flex;align-items:center;justify-content:center;}
 .mc-nav button:hover{background:var(--sand);}
 .mc-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
-.mc-head{font-size:9px;font-weight:500;text-transform:uppercase;color:var(--text-xlight);text-align:center;padding:3px 0;}
-.mc-day{font-size:12px;text-align:center;padding:2px 0;cursor:pointer;color:var(--text-light);line-height:1;position:relative;transition:all .12s;display:flex;align-items:center;justify-content:center;}
-.mc-day span{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all .12s;}
+.mc-head{font-size:10px;font-weight:500;text-transform:uppercase;color:var(--text-xlight);text-align:center;padding:4px 0;}
+.mc-day{font-size:13.5px;text-align:center;padding:3px 0;cursor:pointer;color:var(--text-light);line-height:1;position:relative;transition:all .12s;display:flex;align-items:center;justify-content:center;}
+.mc-day span{width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:all .12s;font-size:13.5px;}
 .mc-day:hover span{background:var(--sand);}
 .mc-day.other{color:var(--text-xlight);}
 .mc-day.today span{background:var(--text)!important;color:white!important;font-weight:600;}
@@ -80,7 +80,7 @@ body{background:var(--sand);font-family:'DM Sans',sans-serif;color:var(--text);h
 /* ═══════════════════════════════════════
    COLONNE DROITE — 2/3
 ═══════════════════════════════════════ */
-.right-col{display:flex;flex-direction:column;height:100vh;overflow:hidden;background:var(--sand);}
+.right-col{display:flex;flex-direction:column;height:100vh;overflow:hidden;background:var(--white);}
 .right-content{flex:1;overflow:hidden;}
 .page{display:none;height:100%;overflow:hidden;}
 .page.active{display:block;}
@@ -105,7 +105,7 @@ body{background:var(--sand);font-family:'DM Sans',sans-serif;color:var(--text);h
 .btn-fp:hover{background:white;}
 
 /* CARD */
-.card{background:var(--white);border-radius:var(--r);padding:20px 24px;box-shadow:var(--shadow);margin-bottom:16px;}
+.card{background:var(--sand);border-radius:var(--r);padding:20px 24px;box-shadow:var(--shadow);margin-bottom:16px;border:1px solid var(--sand-dark);}
 .card-lbl{font-size:10px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--text-xlight);margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;}
 
 /* TACHES */
@@ -115,7 +115,7 @@ body{background:var(--sand);font-family:'DM Sans',sans-serif;color:var(--text);h
 .task-item.pr{background:var(--red-pale);border-left-color:var(--red);}
 .task-item.po{background:var(--orange-pale);border-left-color:var(--orange);}
 .task-item.pg{background:var(--green-pale);border-left-color:var(--green);}
-.task-item.pn{background:var(--white);border-left-color:var(--sand-deeper);}
+.task-item.pn{background:var(--sand);border-left-color:var(--sand-deeper);}
 .t-chk{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--sand-deeper);flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;background:white;transition:all .18s;cursor:pointer;}
 .t-chk:hover{border-color:var(--sage);}
 .t-chk.done{background:var(--sage);border-color:var(--sage);}
@@ -657,7 +657,7 @@ function renderTodayTasks(){
   if(retard.length){rs.style.display='';document.getElementById('tasks-retard').innerHTML=retard.map(function(t){return taskHTML(t,true);}).join('');}else rs.style.display='none';
   var jour=tasks.filter(function(t){return t.date_echeance===ds&&t.statut!=='terminee'&&t.statut!=='archivee';});
   document.getElementById('n-jour').textContent=jour.length;
-  document.getElementById('tasks-jour').innerHTML=jour.length?jour.map(function(t){return taskHTML(t,false);}).join(''):'<div class="empty">Rien de prevu !</div>';
+  document.getElementById('tasks-jour').innerHTML=jour.length?jour.map(function(t){return taskHTMLCompact(t);}).join(''):'<div class="empty">Rien de prevu !</div>';
 }
 
 function renderTachesList(){
@@ -724,6 +724,24 @@ function renderPlanifier(){
     var isT=ds===today;
     return'<div class="plan-day"><div class="plan-day-hdr"><span class="plan-day-name'+(isT?' today':'')+'">'+jF[day.getDay()]+' '+day.getDate()+' '+mN[day.getMonth()]+'</span><span class="plan-day-n">'+dt.length+' tache'+(dt.length!==1?'s':'')+'</span></div>'+(dt.length?'<div class="tasks-list">'+dt.map(function(t){return taskHTML(t,false);}).join('')+'</div>':'')+'<button class="btn-plan-add" onclick="openModalDate(\''+ds+'\')">+ Ajouter ce jour</button></div>';
   }).join('');
+}
+
+function taskHTMLCompact(t){
+  var done=t.statut==='terminee';
+  var pc=t.priorite==='haute'?'pr':t.priorite==='moyenne'?'po':t.priorite==='basse'?'pg':'pn';
+  var row=typeof t._row==='number'?t._row:0;
+  var recB=t.recurrence?'<span class="badge b-rec">&#8635; '+esc(recLabel(t))+'</span>':'';
+  var focB=t.focus==='oui'?'<span class="badge b-focus">&#11088;</span>':'';
+  var catB='<span class="badge b-cat">'+esc(t.liste)+'</span>';
+  return'<div class="task-item '+pc+(done?' done-t':'')+'" onclick="openModal('+row+')">'
+    +'<div class="t-chk'+(done?' done':'')+'" onclick="toggleCheck(event,'+row+')"></div>'
+    +'<div class="t-body"><div class="t-titre">'+esc(t.titre)+'</div>'
+    +'<div class="t-meta">'+catB+recB+focB+'</div></div>'
+    +'<div class="t-actions">'
+    +'<button class="btn-ta'+(t.focus==='oui'?' pinned':'')+'" onclick="togglePin(event,'+row+')" title="Focus">&#11088;</button>'
+    +'<button class="btn-ta" onclick="openModal('+row+')">&#9998;</button>'
+    +'<button class="btn-ta danger" onclick="doSuppr(event,'+row+')">&#10005;</button>'
+    +'</div></div>';
 }
 
 function taskHTML(t,showCat){
