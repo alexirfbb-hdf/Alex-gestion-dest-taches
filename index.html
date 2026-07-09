@@ -497,7 +497,8 @@ function init(){
     renderAll();loadAgenda();
   }).catch(function(e){showToast('Erreur: '+e.message,true);});
 }
-function syncAll(){
+function syncAll(){init();}
+
 // ── GESTION CATEGORIES ────────────────────────────────────
 var catsEditing = [], catDragIdx = null;
 
@@ -515,7 +516,7 @@ function renderCatEdit() {
     return '<div class="cat-edit-row" draggable="true" ondragstart="catDragStart('+i+')" ondragover="catDragOver(event,'+i+')" ondrop="catDrop('+i+')" ondragend="catDragEnd()">' +
       '<span class="cat-drag">⠿</span>' +
       '<input class="cat-edit-input" value="'+esc(cat)+'" onchange="catsEditing['+i+']=this.value">' +
-      '<span class="cat-edit-n">'+n+' tâche'+(n!==1?'s':'')+'</span>' +
+      '<span class="cat-edit-n">'+n+' tache'+(n!==1?'s':'')+'</span>' +
       '<button class="cat-edit-del" onclick="delCat('+i+')">✕</button>' +
       '</div>';
   }).join('');
@@ -532,20 +533,21 @@ function catDrop(i) {
 function catDragEnd() { catDragIdx=null; }
 
 function addNewCat() {
-  catsEditing.push('Nouvelle catégorie');
+  catsEditing.push('Nouvelle categorie');
   renderCatEdit();
   setTimeout(function(){
     var inputs=document.querySelectorAll('.cat-edit-input');
-    if(inputs.length) { inputs[inputs.length-1].select(); inputs[inputs.length-1].focus(); }
+    if(inputs.length){inputs[inputs.length-1].select();inputs[inputs.length-1].focus();}
   }, 40);
 }
 
 function delCat(i) {
-  var cat = catsEditing[i];
-  var n = tasks.filter(function(t){return t.liste===cat;}).length;
-  if (n > 0) {
-    showConfirm('Supprimer "'+cat+'" et ses '+n+' tâches ?', function() {
-      tasks = tasks.filter(function(t){return t.liste!==cat;});
+  var cat=catsEditing[i];
+  var n=tasks.filter(function(t){return t.liste===cat;}).length;
+  if(n>0){
+    showConfirm('Supprimer "'+cat+'" et ses '+n+' taches ?',function(){
+      tasks.filter(function(t){return t.liste===cat;}).forEach(function(t){deleteRow(t._row);});
+      tasks=tasks.filter(function(t){return t.liste!==cat;});
       catsEditing.splice(i,1);
       renderCatEdit();
     });
@@ -556,35 +558,24 @@ function delCat(i) {
 }
 
 function saveCats() {
-  var inputs = document.querySelectorAll('.cat-edit-input');
-  inputs.forEach(function(inp,i){ if(inp&&catsEditing[i]!==undefined) catsEditing[i]=inp.value.trim()||catsEditing[i]; });
-  // Renommer dans les tâches ET sauvegarder dans le sheet
-  cats.forEach(function(oldCat, i) {
-    var newCat = catsEditing[i];
-    if (oldCat && newCat && oldCat !== newCat) {
-      tasks.forEach(function(t){
-        if(t.liste===oldCat){
-          t.liste=newCat;
-          saveRow(t); // Sauvegarder dans le sheet
-        }
-      });
+  var inputs=document.querySelectorAll('.cat-edit-input');
+  inputs.forEach(function(inp,i){if(inp&&catsEditing[i]!==undefined)catsEditing[i]=inp.value.trim()||catsEditing[i];});
+  cats.forEach(function(oldCat,i){
+    var newCat=catsEditing[i];
+    if(oldCat&&newCat&&oldCat!==newCat){
+      tasks.forEach(function(t){if(t.liste===oldCat){t.liste=newCat;saveRow(t);}});
     }
   });
-  // Supprimer les tâches des catégories supprimées
-  var toDelete = cats.filter(function(c){ return catsEditing.indexOf(c) < 0; });
+  var toDelete=cats.filter(function(c){return catsEditing.indexOf(c)<0;});
   toDelete.forEach(function(cat){
-    tasks.filter(function(t){return t.liste===cat;}).forEach(function(t){ deleteRow(t._row); });
-    tasks = tasks.filter(function(t){ return t.liste!==cat; });
+    tasks.filter(function(t){return t.liste===cat;}).forEach(function(t){deleteRow(t._row);});
+    tasks=tasks.filter(function(t){return t.liste!==cat;});
   });
-  cats = catsEditing.filter(function(c){return c&&c.trim();});
-  localStorage.setItem('irfbb_cats', JSON.stringify(cats));
-  closeCatModal();
-  renderAll();
-  renderTachesList();
-  showToast('Catégories mises à jour !');
+  cats=catsEditing.filter(function(c){return c&&c.trim();});
+  localStorage.setItem('irfbb_cats',JSON.stringify(cats));
+  closeCatModal();renderAll();renderTachesList();
+  showToast('Categories mises a jour !');
 }
-
-init();}
 function renderAll(){renderDateHero();renderMiniCal();renderFocus();renderTodayTasks();populateSelects();}
 
 function renderDateHero(){
@@ -670,7 +661,7 @@ function renderTachesList(){
   var grouped={};list.forEach(function(t){if(!grouped[t.liste])grouped[t.liste]=[];grouped[t.liste].push(t);});
   var order=currentCatFilter?[currentCatFilter]:cats.filter(function(c){return grouped[c]&&grouped[c].length;});
   // Titre de la vue
-  var titre=currentCatFilter?'<div style="font-family:Playfair Display,serif;font-size:20px;color:var(--text);margin-bottom:14px;">'+esc(currentCatFilter)+'</div>':'';
+  var titre=currentCatFilter?'<div style="font-family:serif;font-size:20px;color:var(--text);margin-bottom:14px;">'+esc(currentCatFilter)+'</div>':'';
   document.getElementById('taches-list').innerHTML=titre+order.filter(function(c){return grouped[c]&&grouped[c].length;}).map(function(cat){
     var base=grouped[cat]||[];
     var done=base.filter(function(t){return t.statut==='terminee';}).length;
@@ -813,91 +804,6 @@ function closeConfirm(){document.getElementById('confirmBg').classList.add('hidd
 function showToast(msg,err){var t=document.getElementById('toast');t.textContent=msg;t.className='toast show'+(err?' err':'');setTimeout(function(){t.className='toast';},3000);}
 
 
-// ── GESTION CATEGORIES ────────────────────────────────────
-var catsEditing = [], catDragIdx = null;
-
-function openCatModal() {
-  catsEditing = cats.slice();
-  renderCatEdit();
-  document.getElementById('catModalBg').classList.remove('hidden');
-}
-function closeCatModal() { document.getElementById('catModalBg').classList.add('hidden'); }
-function closeCatBg(e) { if(e.target===document.getElementById('catModalBg'))closeCatModal(); }
-
-function renderCatEdit() {
-  document.getElementById('catEditList').innerHTML = catsEditing.map(function(cat, i) {
-    var n = tasks.filter(function(t){return t.liste===cat&&t.statut!=='archivee';}).length;
-    return '<div class="cat-edit-row" draggable="true" ondragstart="catDragStart('+i+')" ondragover="catDragOver(event,'+i+')" ondrop="catDrop('+i+')" ondragend="catDragEnd()">' +
-      '<span class="cat-drag">⠿</span>' +
-      '<input class="cat-edit-input" value="'+esc(cat)+'" onchange="catsEditing['+i+']=this.value">' +
-      '<span class="cat-edit-n">'+n+' tâche'+(n!==1?'s':'')+'</span>' +
-      '<button class="cat-edit-del" onclick="delCat('+i+')">✕</button>' +
-      '</div>';
-  }).join('');
-}
-
-function catDragStart(i) { catDragIdx=i; }
-function catDragOver(e,i) { e.preventDefault(); }
-function catDrop(i) {
-  if(catDragIdx===null||catDragIdx===i) return;
-  var item=catsEditing.splice(catDragIdx,1)[0];
-  catsEditing.splice(i,0,item);
-  catDragIdx=null; renderCatEdit();
-}
-function catDragEnd() { catDragIdx=null; }
-
-function addNewCat() {
-  catsEditing.push('Nouvelle catégorie');
-  renderCatEdit();
-  setTimeout(function(){
-    var inputs=document.querySelectorAll('.cat-edit-input');
-    if(inputs.length) { inputs[inputs.length-1].select(); inputs[inputs.length-1].focus(); }
-  }, 40);
-}
-
-function delCat(i) {
-  var cat = catsEditing[i];
-  var n = tasks.filter(function(t){return t.liste===cat;}).length;
-  if (n > 0) {
-    showConfirm('Supprimer "'+cat+'" et ses '+n+' tâches ?', function() {
-      tasks = tasks.filter(function(t){return t.liste!==cat;});
-      catsEditing.splice(i,1);
-      renderCatEdit();
-    });
-  } else {
-    catsEditing.splice(i,1);
-    renderCatEdit();
-  }
-}
-
-function saveCats() {
-  var inputs = document.querySelectorAll('.cat-edit-input');
-  inputs.forEach(function(inp,i){ if(inp&&catsEditing[i]!==undefined) catsEditing[i]=inp.value.trim()||catsEditing[i]; });
-  // Renommer dans les tâches ET sauvegarder dans le sheet
-  cats.forEach(function(oldCat, i) {
-    var newCat = catsEditing[i];
-    if (oldCat && newCat && oldCat !== newCat) {
-      tasks.forEach(function(t){
-        if(t.liste===oldCat){
-          t.liste=newCat;
-          saveRow(t); // Sauvegarder dans le sheet
-        }
-      });
-    }
-  });
-  // Supprimer les tâches des catégories supprimées
-  var toDelete = cats.filter(function(c){ return catsEditing.indexOf(c) < 0; });
-  toDelete.forEach(function(cat){
-    tasks.filter(function(t){return t.liste===cat;}).forEach(function(t){ deleteRow(t._row); });
-    tasks = tasks.filter(function(t){ return t.liste!==cat; });
-  });
-  cats = catsEditing.filter(function(c){return c&&c.trim();});
-  localStorage.setItem('irfbb_cats', JSON.stringify(cats));
-  closeCatModal();
-  renderAll();
-  renderTachesList();
-  showToast('Catégories mises à jour !');
-}
 
 init();
 </script>
